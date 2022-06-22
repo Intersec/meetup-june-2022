@@ -36,5 +36,5 @@ meetup-june-2022/src$ waf
 
 You can now run the `wordcount` program:
 ----------------------------------
-meetup-june-2022/src$ ./wordcount
+meetup-june-2022/src$ ./wordcount <file_path>
 ----------------------------------
