@@ -39,6 +39,10 @@ static popt_t opts_g[] = {
     OPT_END()
 };
 
+/* Create the map type lstr_t => unsigned with name word_occurrences */
+qm_kvec_t(word_occurrences_map, lstr_t, unsigned, qhash_lstr_hash,
+          qhash_lstr_equal);
+
 /** Get file content of file located at \p file_path.
  *
  * The file is mmapped, and thus the content of the file is not duplicated in
@@ -65,13 +69,16 @@ static int wordcount_get_file_content(const char *file_path,
     return 0;
 }
 
-/** Split the file content per word.
+/** Split the file content per word and count their occurrences.
  *
- * For now, we just print each word in the file.
+ * Put the words and their occurrences in a map.
  *
- * \param[in] file_content The file content.
+ * \param[in]  file_content         The file content.
+ * \param[out] word_occurrences_map The map countaining the words and their
+ *                                  occurrences.
  */
-static void wordcount_split_words(lstr_t file_content)
+static void wordcount_split_words(
+    lstr_t file_content, qm_t(word_occurrences_map) *word_occurrences_map)
 {
     pstream_t file_ps;
 
@@ -81,6 +88,8 @@ static void wordcount_split_words(lstr_t file_content)
     /* Iterate until the stream parser is empty */
     while (!ps_done(&file_ps)) {
         pstream_t word_ps;
+        lstr_t word_lstr;
+        uint32_t pos;
 
         /* Get the next word */
         word_ps = ps_get_span(&file_ps, &ctype_iswordpart);
@@ -93,8 +102,16 @@ static void wordcount_split_words(lstr_t file_content)
             continue;
         }
 
-        /* Just print the word for now */
-        e_info("%*pM", PS_FMT_ARG(&word_ps));
+        /* Put the word in the map */
+        /* Store 1 as value if `word_lstr` is not already in the map... */
+        word_lstr = LSTR_PS_V(&word_ps);
+        pos = qm_put(word_occurrences_map, word_occurrences_map, &word_lstr,
+                     1, 0);
+        if (pos & QHASH_COLLISION) {
+            /* ...increment the value by 1 if `word_lstr` is already in the
+             * map. */
+            word_occurrences_map->values[pos ^ QHASH_COLLISION] += 1;
+        }
     }
 }
 
@@ -103,6 +120,7 @@ int main(int argc, char **argv)
     const char *arg0 = NEXTARG(argc, argv);
     const char *file_path;
     lstr_t file_content;
+    qm_t(word_occurrences_map) word_occurrences_map;
 
     /* Parse the arguments */
     argc = parseopt(argc, argv, opts_g, 0);
@@ -115,10 +133,21 @@ int main(int argc, char **argv)
     file_path = NEXTARG(argc, argv);
     RETHROW(wordcount_get_file_content(file_path, &file_content));
 
+    /* Initialize the map of word occurrences */
+    qm_init(word_occurrences_map, &word_occurrences_map);
+
     /* Split the file content per word */
-    wordcount_split_words(file_content);
+    wordcount_split_words(file_content, &word_occurrences_map);
+
+    /* Print the map content */
+    qm_for_each_key_value(word_occurrences_map, word, occurrences,
+                          &word_occurrences_map)
+    {
+        e_info("%pL => %u", &word, occurrences);
+    }
 
     /* Clean-up */
+    qm_wipe(word_occurrences_map, &word_occurrences_map);
     lstr_wipe(&file_content);
 
     return 0;
