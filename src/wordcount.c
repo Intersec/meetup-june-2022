@@ -39,11 +39,70 @@ static popt_t opts_g[] = {
     OPT_END()
 };
 
+/** Get file content of file located at \p file_path.
+ *
+ * The file is mmapped, and thus the content of the file is not duplicated in
+ * memory.
+ * Thanks to that, parsing big files is not an issue.
+ * The file content must be wiped after use to munmap the file.
+ *
+ * \param[in]  file_path    The path to the file to read.
+ * \param[out] file_content The content of the file. It must be wiped after
+ *                          use.
+ * \return -1 in case of error, 0 otherwise.
+ */
+static int wordcount_get_file_content(const char *file_path,
+                                      lstr_t *file_content)
+{
+    if (lstr_init_from_file(file_content, file_path, PROT_READ,
+                            MAP_PRIVATE) < 0)
+    {
+        e_error("unable to get the content of the file `%s` has failed: %m\n",
+                file_path);
+        return -1;
+    }
+
+    return 0;
+}
+
+/** Split the file content per word.
+ *
+ * For now, we just print each word in the file.
+ *
+ * \param[in] file_content The file content.
+ */
+static void wordcount_split_words(lstr_t file_content)
+{
+    pstream_t file_ps;
+
+    /* Initialize the stream parser from the content */
+    file_ps = ps_initlstr(&file_content);
+
+    /* Iterate until the stream parser is empty */
+    while (!ps_done(&file_ps)) {
+        pstream_t word_ps;
+
+        /* Get the next word */
+        word_ps = ps_get_span(&file_ps, &ctype_iswordpart);
+
+        /* Skip the characters to the next word for next loop */
+        ps_skip_cspan(&file_ps, &ctype_iswordpart);
+
+        /* Do nothing if word is empty */
+        if (ps_done(&word_ps)) {
+            continue;
+        }
+
+        /* Just print the word for now */
+        e_info("%*pM", PS_FMT_ARG(&word_ps));
+    }
+}
 
 int main(int argc, char **argv)
 {
     const char *arg0 = NEXTARG(argc, argv);
     const char *file_path;
+    lstr_t file_content;
 
     /* Parse the arguments */
     argc = parseopt(argc, argv, opts_g, 0);
@@ -52,8 +111,15 @@ int main(int argc, char **argv)
                   long_usage_g, opts_g);
     }
 
+    /* Get the file content */
     file_path = NEXTARG(argc, argv);
-    e_info("TODO wordcount on file `%s`", file_path);
+    RETHROW(wordcount_get_file_content(file_path, &file_content));
+
+    /* Split the file content per word */
+    wordcount_split_words(file_content);
+
+    /* Clean-up */
+    lstr_wipe(&file_content);
 
     return 0;
 }
