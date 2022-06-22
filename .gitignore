@@ -1,0 +1,13 @@
+*.blk.c
+*.c.tmp
+*.iop.h
+*.iop.c
+*.iop.json
+*.iop.ts
+
+.tags
+.syntastic*
+.local_vimrc.vim
+
+/.build*
+/.lock-waf*

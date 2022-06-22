@@ -1,0 +1,40 @@
+= Meetup June 2022 lib-common usage example
+
+This repository contains the examples presented during the meetup on June 29th
+2002 on how to use lib-common.
+
+== Quickstart
+
+=== Prerequisites
+
+First, you need to install all the
+https://github.com/Intersec/lib-common/#quickstart[lib-common prerequisites
+and dependencies].
+
+=== Build
+
+First of all, you have to configure your project, by running in the top-level
+directory:
+---------------------------------
+meetup-june-2022$ waf configure
+---------------------------------
+
+By default, it will use gcc. You can also use clang by defining the two
+environment variables `CC` and `CXX`:
+---------------------------------
+meetup-june-2022$ CC=clang CXX=clang++ waf configure
+---------------------------------
+
+If the configuration step triggers no error, then you are ready to build.
+Go into the `src` directory and run the following command:
+----------------------------------
+meetup-june-2022$ cd src
+meetup-june-2022/src$ waf
+----------------------------------
+
+=== Run
+
+You can now run the `wordcount` program:
+----------------------------------
+meetup-june-2022/src$ ./wordcount
+----------------------------------
