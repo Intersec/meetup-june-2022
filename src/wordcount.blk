@@ -40,9 +40,10 @@ static popt_t opts_g[] = {
     OPT_END()
 };
 
-/* Create the map type lstr_t => unsigned with name word_occurrences */
-qm_kvec_t(word_occurrences_map, lstr_t, unsigned, qhash_lstr_hash,
-          qhash_lstr_equal);
+/* Create the map type lstr_t => unsigned with name word_occurrences.
+ * The word equality ignore the case. */
+qm_kvec_t(word_occurrences_map, lstr_t, unsigned, qhash_lstr_ascii_ihash,
+          qhash_lstr_ascii_iequal);
 
 /* Structure to contain the occurrences for a unique word */
 typedef struct wordcount_word_occurrences_t {
@@ -127,26 +128,31 @@ static void wordcount_split_words(
 
 /** Sort the words by their occurrences in the map to a vector.
  *
+ * The words are converted to lower case.
+ *
  * \param[in]  word_occurrences_map The map countaining the words and their
  *                                  occurrences.
  * \param[out] word_occurrences_vec The vector of sorted words by their
  *                                  occurrences.
+ *                                  The vector and words are allocated on the
+ *                                  t_scope.
  */
-static void wordcount_sort_word_occurrences(
+static void t_wordcount_sort_word_occurrences(
     const qm_t(word_occurrences_map) *word_occurrences_map,
     qv_t(word_occurrences_vec) *word_occurrences_vec)
 {
-    /* Grow the vector to the size of the map in order to do only one
-     * allocation */
-    qv_grow(word_occurrences_vec,
-            qm_len(word_occurrences_map, word_occurrences_map));
+    /* Initialize the vector on the t_scope to the size of the map in order to
+     * do only one allocation */
+    t_qv_init(word_occurrences_vec,
+              qm_len(word_occurrences_map, word_occurrences_map));
 
     /* Populate the vector with the map content */
     qm_for_each_key_value(word_occurrences_map, word, occurrences,
                           word_occurrences_map)
     {
         wordcount_word_occurrences_t word_occurrences = {
-            .word = word,
+            /* Duplicate the word on the t_scope and use lower case */
+            .word = t_lstr_ascii_tolower(word),
             .occurrences = occurrences,
         };
 
@@ -170,8 +176,9 @@ static void wordcount_sort_word_occurrences(
  * \param[in]  file_content         The file content.
  * \param[out] word_occurrences_vec The vector of sorted words by their
  *                                  occurrences.
+ *                                  The vector is allocated on the t_scope.
  */
-static void wordcount_split_and_sort_word_occurrences(
+static void t_wordcount_split_and_sort_word_occurrences(
     lstr_t file_content, qv_t(word_occurrences_vec) *word_occurrences_vec)
 {
     qm_t(word_occurrences_map) word_occurrences_map;
@@ -183,8 +190,8 @@ static void wordcount_split_and_sort_word_occurrences(
     wordcount_split_words(file_content, &word_occurrences_map);
 
     /* Sort the words by their occurrences */
-    wordcount_sort_word_occurrences(&word_occurrences_map,
-                                    word_occurrences_vec);
+    t_wordcount_sort_word_occurrences(&word_occurrences_map,
+                                      word_occurrences_vec);
 
     /* Clean-up */
     qm_wipe(word_occurrences_map, &word_occurrences_map);
@@ -192,6 +199,7 @@ static void wordcount_split_and_sort_word_occurrences(
 
 int main(int argc, char **argv)
 {
+    t_scope;
     const char *arg0 = NEXTARG(argc, argv);
     const char *file_path;
     lstr_t file_content;
@@ -208,13 +216,14 @@ int main(int argc, char **argv)
     file_path = NEXTARG(argc, argv);
     RETHROW(wordcount_get_file_content(file_path, &file_content));
 
-    /* Initialize the vector */
-    qv_init(&word_occurrences_vec);
-
     /* Split the words from the content of a file and sort the words by
      * occurrences */
-    wordcount_split_and_sort_word_occurrences(
+    t_wordcount_split_and_sort_word_occurrences(
         file_content, &word_occurrences_vec);
+
+    /* Clean-up the file contents now. The words are duplicated on the
+     * t_scope */
+    lstr_wipe(&file_content);
 
     /* Display the sorted word occurrences */
     tab_for_each_ptr(word_occurrences, &word_occurrences_vec) {
@@ -222,9 +231,8 @@ int main(int argc, char **argv)
                word_occurrences->occurrences);
     }
 
-    /* Clean-up */
-    qv_wipe(&word_occurrences_vec);
-    lstr_wipe(&file_content);
+    /* No clean-up here, the vector and words are deallocated with the
+     * t_scope */
 
     return 0;
 }
