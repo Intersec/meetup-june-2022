@@ -18,6 +18,7 @@
 
 #include <lib-common/core.h>
 #include <lib-common/parseopt.h>
+#include <lib-common/container-qvector.h>
 
 
 static const char *short_args_g = "<file_path>";
@@ -42,6 +43,15 @@ static popt_t opts_g[] = {
 /* Create the map type lstr_t => unsigned with name word_occurrences */
 qm_kvec_t(word_occurrences_map, lstr_t, unsigned, qhash_lstr_hash,
           qhash_lstr_equal);
+
+/* Structure to contain the occurrences for a unique word */
+typedef struct wordcount_word_occurrences_t {
+    lstr_t word;
+    unsigned occurrences;
+} wordcount_word_occurrences_t;
+
+/* Create the vector type to store the word occurrences. */
+qvector_t(word_occurrences_vec, wordcount_word_occurrences_t);
 
 /** Get file content of file located at \p file_path.
  *
@@ -115,12 +125,77 @@ static void wordcount_split_words(
     }
 }
 
+/** Sort the words by their occurrences in the map to a vector.
+ *
+ * \param[in]  word_occurrences_map The map countaining the words and their
+ *                                  occurrences.
+ * \param[out] word_occurrences_vec The vector of sorted words by their
+ *                                  occurrences.
+ */
+static void wordcount_sort_word_occurrences(
+    const qm_t(word_occurrences_map) *word_occurrences_map,
+    qv_t(word_occurrences_vec) *word_occurrences_vec)
+{
+    /* Grow the vector to the size of the map in order to do only one
+     * allocation */
+    qv_grow(word_occurrences_vec,
+            qm_len(word_occurrences_map, word_occurrences_map));
+
+    /* Populate the vector with the map content */
+    qm_for_each_key_value(word_occurrences_map, word, occurrences,
+                          word_occurrences_map)
+    {
+        wordcount_word_occurrences_t word_occurrences = {
+            .word = word,
+            .occurrences = occurrences,
+        };
+
+        qv_append(word_occurrences_vec, word_occurrences);
+    }
+
+    /* Sort the vector by occurrences.
+     * We use qv_sort() that works with a block (clang's closure) */
+    qv_sort(word_occurrences_vec)(
+        word_occurrences_vec,
+        ^int (const wordcount_word_occurrences_t *v1,
+              const wordcount_word_occurrences_t *v2)
+    {
+        return CMP(v2->occurrences, v1->occurrences);
+    });
+}
+
+/** Split the words from the content of a file and sort the words by
+ * occurrences.
+ *
+ * \param[in]  file_content         The file content.
+ * \param[out] word_occurrences_vec The vector of sorted words by their
+ *                                  occurrences.
+ */
+static void wordcount_split_and_sort_word_occurrences(
+    lstr_t file_content, qv_t(word_occurrences_vec) *word_occurrences_vec)
+{
+    qm_t(word_occurrences_map) word_occurrences_map;
+
+    /* Initialize the map of word occurrences */
+    qm_init(word_occurrences_map, &word_occurrences_map);
+
+    /* Split the file content per word */
+    wordcount_split_words(file_content, &word_occurrences_map);
+
+    /* Sort the words by their occurrences */
+    wordcount_sort_word_occurrences(&word_occurrences_map,
+                                    word_occurrences_vec);
+
+    /* Clean-up */
+    qm_wipe(word_occurrences_map, &word_occurrences_map);
+}
+
 int main(int argc, char **argv)
 {
     const char *arg0 = NEXTARG(argc, argv);
     const char *file_path;
     lstr_t file_content;
-    qm_t(word_occurrences_map) word_occurrences_map;
+    qv_t(word_occurrences_vec) word_occurrences_vec;
 
     /* Parse the arguments */
     argc = parseopt(argc, argv, opts_g, 0);
@@ -133,21 +208,22 @@ int main(int argc, char **argv)
     file_path = NEXTARG(argc, argv);
     RETHROW(wordcount_get_file_content(file_path, &file_content));
 
-    /* Initialize the map of word occurrences */
-    qm_init(word_occurrences_map, &word_occurrences_map);
+    /* Initialize the vector */
+    qv_init(&word_occurrences_vec);
 
-    /* Split the file content per word */
-    wordcount_split_words(file_content, &word_occurrences_map);
+    /* Split the words from the content of a file and sort the words by
+     * occurrences */
+    wordcount_split_and_sort_word_occurrences(
+        file_content, &word_occurrences_vec);
 
-    /* Print the map content */
-    qm_for_each_key_value(word_occurrences_map, word, occurrences,
-                          &word_occurrences_map)
-    {
-        e_info("%pL => %u", &word, occurrences);
+    /* Display the sorted word occurrences */
+    tab_for_each_ptr(word_occurrences, &word_occurrences_vec) {
+        e_info("%pL => %u", &word_occurrences->word,
+               word_occurrences->occurrences);
     }
 
     /* Clean-up */
-    qm_wipe(word_occurrences_map, &word_occurrences_map);
+    qv_wipe(&word_occurrences_vec);
     lstr_wipe(&file_content);
 
     return 0;

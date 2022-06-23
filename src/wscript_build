@@ -17,4 +17,4 @@
 ###########################################################################
 
 ctx.program(target='wordcount', features='c cprogram',
-            source='wordcount.c', use=['libcommon'])
+            source='wordcount.blk', use=['libcommon'])
