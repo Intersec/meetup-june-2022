@@ -34,7 +34,12 @@ meetup-june-2022/src$ waf
 
 === Run
 
-You can now run the `wordcount` program:
+You can now run the `wordcount` server program:
 ----------------------------------
-meetup-june-2022/src$ ./wordcount <file_path>
+meetup-june-2022/src$ ./wordcount-server
+----------------------------------
+
+And run the `wordcount` client program:
+----------------------------------
+meetup-june-2022/src$ ./wordcount-client <file_path>
 ----------------------------------

@@ -16,5 +16,12 @@
 #                                                                         #
 ###########################################################################
 
-ctx.program(target='wordcount', features='c cprogram',
-            source='wordcount.blk', use=['libcommon'])
+
+# wordcount-server program
+ctx.program(target='wordcount-server', features='c cprogram',
+            source='wordcount-server.blk', use=['libcommon'])
+
+
+# wordcount-client program
+ctx.program(target='wordcount-client', features='c cprogram',
+            source='wordcount-client.c', use=['libcommon'])

@@ -18,21 +18,25 @@
 
 #include <lib-common/core.h>
 #include <lib-common/parseopt.h>
-#include <lib-common/container-qvector.h>
+#include <lib-common/iop-rpc.h>
+
+#include "wordcount-base.h"
 
 
-static const char *short_args_g = "<file_path>";
+static const char *short_args_g = "";
 
 static const char *long_usage_g[] = {
-    "Count the number of occurrences of each unique words in the file",
-    "located at <file_path>.",
+    "Server part of wordcount",
+    "",
+    "Receive the file content from the client via RPC, count the number of ",
+    "occurrences of each unique words, and send the results back",
     NULL,
 };
 
 static struct {
     bool opt_help;
-} wordcount_g;
-#define _G wordcount_g
+} wordcount_server_g;
+#define _G wordcount_server_g
 
 static popt_t opts_g[] = {
     OPT_GROUP("Options:"),
@@ -44,41 +48,6 @@ static popt_t opts_g[] = {
  * The word equality ignore the case. */
 qm_kvec_t(word_occurrences_map, lstr_t, unsigned, qhash_lstr_ascii_ihash,
           qhash_lstr_ascii_iequal);
-
-/* Structure to contain the occurrences for a unique word */
-typedef struct wordcount_word_occurrences_t {
-    lstr_t word;
-    unsigned occurrences;
-} wordcount_word_occurrences_t;
-
-/* Create the vector type to store the word occurrences. */
-qvector_t(word_occurrences_vec, wordcount_word_occurrences_t);
-
-/** Get file content of file located at \p file_path.
- *
- * The file is mmapped, and thus the content of the file is not duplicated in
- * memory.
- * Thanks to that, parsing big files is not an issue.
- * The file content must be wiped after use to munmap the file.
- *
- * \param[in]  file_path    The path to the file to read.
- * \param[out] file_content The content of the file. It must be wiped after
- *                          use.
- * \return -1 in case of error, 0 otherwise.
- */
-static int wordcount_get_file_content(const char *file_path,
-                                      lstr_t *file_content)
-{
-    if (lstr_init_from_file(file_content, file_path, PROT_READ,
-                            MAP_PRIVATE) < 0)
-    {
-        e_error("unable to get the content of the file `%s` has failed: %m\n",
-                file_path);
-        return -1;
-    }
-
-    return 0;
-}
 
 /** Split the file content per word and count their occurrences.
  *
@@ -197,42 +166,32 @@ static void t_wordcount_split_and_sort_word_occurrences(
     qm_wipe(word_occurrences_map, &word_occurrences_map);
 }
 
-int main(int argc, char **argv)
+__unused__
+static void wordcount_server_on_rpc(lstr_t file_content)
 {
     t_scope;
-    const char *arg0 = NEXTARG(argc, argv);
-    const char *file_path;
-    lstr_t file_content;
     qv_t(word_occurrences_vec) word_occurrences_vec;
-
-    /* Parse the arguments */
-    argc = parseopt(argc, argv, opts_g, 0);
-    if (argc != 1 || _G.opt_help) {
-        makeusage(_G.opt_help ? 0 : -1, arg0, short_args_g,
-                  long_usage_g, opts_g);
-    }
-
-    /* Get the file content */
-    file_path = NEXTARG(argc, argv);
-    RETHROW(wordcount_get_file_content(file_path, &file_content));
 
     /* Split the words from the content of a file and sort the words by
      * occurrences */
     t_wordcount_split_and_sort_word_occurrences(
         file_content, &word_occurrences_vec);
 
-    /* Clean-up the file contents now. The words are duplicated on the
-     * t_scope */
-    lstr_wipe(&file_content);
+    /* TODO: reply to the client the sorted word occurrences */
+}
 
-    /* Display the sorted word occurrences */
-    tab_for_each_ptr(word_occurrences, &word_occurrences_vec) {
-        e_info("%pL => %u", &word_occurrences->word,
-               word_occurrences->occurrences);
+int main(int argc, char **argv)
+{
+    const char *arg0 = NEXTARG(argc, argv);
+
+    /* Parse the arguments */
+    argc = parseopt(argc, argv, opts_g, 0);
+    if (argc != 0 || _G.opt_help) {
+        makeusage(_G.opt_help ? 0 : -1, arg0, short_args_g,
+                  long_usage_g, opts_g);
     }
 
-    /* No clean-up here, the vector and words are deallocated with the
-     * t_scope */
+    /* TODO: start the IC server */
 
     return 0;
 }
