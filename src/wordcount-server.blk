@@ -180,6 +180,39 @@ static void wordcount_server_on_rpc(lstr_t file_content)
     /* TODO: reply to the client the sorted word occurrences */
 }
 
+/** Initialization callback called when the module is required.
+ *
+ * \param[in] arg  An optional argument provided to the module.
+ *                 In our case, since no argument is passed to the module, it
+ *                 is NULL.
+ * \return -1 in case of error, 0 in case of success.
+ */
+static int wordcount_server_initialize(void *nullable arg)
+{
+    e_info("starting server");
+
+    /* TODO: start the IC server */
+
+    return 0;
+}
+
+/** Shutdown callback called when the module is released.
+ *
+ * \return -1 in case of error, 0 in case of success.
+ */
+static int wordcount_server_shutdown(void)
+{
+    e_info("stopping server");
+    return 0;
+}
+
+/** The definition of the module */
+static MODULE_BEGIN(wordcount_server)
+    /* wordcount_base module is initialized before this module, and released
+     * after this module */
+    MODULE_DEPENDS_ON(wordcount_base);
+MODULE_END()
+
 int main(int argc, char **argv)
 {
     const char *arg0 = NEXTARG(argc, argv);
@@ -191,7 +224,15 @@ int main(int argc, char **argv)
                   long_usage_g, opts_g);
     }
 
-    /* TODO: start the IC server */
+    /* Initialize the server */
+    MODULE_REQUIRE(wordcount_server);
+
+    /* Start the event loop and block until the event loop blocker of
+     * wordcount_base module is unregistered */
+    el_loop();
+
+    /* Shutdown the server */
+    MODULE_RELEASE(wordcount_server);
 
     return 0;
 }

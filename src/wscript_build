@@ -17,11 +17,16 @@
 ###########################################################################
 
 
+# Base static library for wordcount-server and wordcount-client
+ctx.stlib(target='wordcount-base', features='c cstlib',
+          source='wordcount-base.c', use=['libcommon'])
+
+
 # wordcount-server program
 ctx.program(target='wordcount-server', features='c cprogram',
-            source='wordcount-server.blk', use=['libcommon'])
+            source='wordcount-server.blk', use=['wordcount-base'])
 
 
 # wordcount-client program
 ctx.program(target='wordcount-client', features='c cprogram',
-            source='wordcount-client.c', use=['libcommon'])
+            source='wordcount-client.c', use=['wordcount-base'])

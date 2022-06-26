@@ -32,5 +32,10 @@ typedef struct wordcount_word_occurrences_t {
 /* Create the vector type to store the word occurrences. */
 qvector_t(word_occurrences_vec, wordcount_word_occurrences_t);
 
+/** Module to handle common behaviour between server and client.
+ *
+ * Handle an event loop blocker and handle termination signals.
+ */
+MODULE_DECLARE(wordcount_base);
 
 #endif /* IS_WORDCOUNT_BASE_H */

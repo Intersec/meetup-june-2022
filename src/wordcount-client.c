@@ -18,6 +18,7 @@
 
 #include <lib-common/core.h>
 #include <lib-common/parseopt.h>
+#include <lib-common/el.h>
 
 #include "wordcount-base.h"
 
@@ -100,6 +101,39 @@ static void wordcount_client_on_connect(void)
     lstr_wipe(&file_content);
 }
 
+/** Initialization callback called when the module is required.
+ *
+ * \param[in] arg  An optional argument provided to the module.
+ *                 In our case, since no argument is passed to the module, it
+ *                 is NULL.
+ * \return -1 in case of error, 0 in case of success.
+ */
+static int wordcount_client_initialize(void *nullable arg)
+{
+    e_info("starting client");
+
+    /* TODO: connect the IC server */
+
+    return 0;
+}
+
+/** Shutdown callback called when the module is released.
+ *
+ * \return -1 in case of error, 0 in case of success.
+ */
+static int wordcount_client_shutdown(void)
+{
+    e_info("stopping client");
+    return 0;
+}
+
+/** The definition of the module */
+static MODULE_BEGIN(wordcount_client)
+    /* wordcount_base module is initialized before this module, and released
+     * after this module */
+    MODULE_DEPENDS_ON(wordcount_base);
+MODULE_END()
+
 int main(int argc, char **argv)
 {
     const char *arg0 = NEXTARG(argc, argv);
@@ -113,7 +147,15 @@ int main(int argc, char **argv)
 
     _G.file_path = NEXTARG(argc, argv);
 
-    /* TODO: connect to the server */
+    /* Initialize wordcount_client module */
+    MODULE_REQUIRE(wordcount_client);
+
+    /* Start the event loop and block until the event loop blocker of
+     * wordcount_base module is unregistered */
+    el_loop();
+
+    /* Shutdown the client */
+    MODULE_RELEASE(wordcount_client);
 
     return 0;
 }
