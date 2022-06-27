@@ -178,8 +178,8 @@ static void t_wordcount_split_and_sort_word_occurrences(
     qm_wipe(word_occurrences_map, &word_occurrences_map);
 }
 
-__unused__
-static void wordcount_server_on_rpc(lstr_t file_content)
+/** RPC implementation, this function is called on RPC query. */
+static void IOP_RPC_IMPL(wordcount__mod, wordcount_iface, count_occurrences)
 {
     t_scope;
     qv_t(word_occurrences_vec) word_occurrences_vec;
@@ -187,9 +187,13 @@ static void wordcount_server_on_rpc(lstr_t file_content)
     /* Split the words from the content of a file and sort the words by
      * occurrences */
     t_wordcount_split_and_sort_word_occurrences(
-        file_content, &word_occurrences_vec);
+        arg->file_content, &word_occurrences_vec);
 
-    /* TODO: reply to the client the sorted word occurrences */
+    /* Send the word occurrences back.
+     * The vector is converted as an IOP array. */
+    ic_reply(ic, slot, wordcount__mod, wordcount_iface, count_occurrences,
+             .word_occurrences = IOP_TYPED_ARRAY_TAB(
+                 wordcount__word_occurrences, &word_occurrences_vec));
 }
 
 /** Called on client status changes. */
@@ -262,6 +266,10 @@ static int wordcount_server_initialize(void *nullable arg)
                 server_cfg->port);
         return -1;
     }
+
+    /* Register the RPC */
+    ic_register(&_G.ic_impl, wordcount__mod, wordcount_iface,
+                count_occurrences);
 
     return 0;
 }

@@ -104,15 +104,27 @@ static void worcount_client_exit(int res)
     kill(0, SIGQUIT);
 }
 
-__unused__
-static void wordcount_client_on_rpc_cb(
-    const wordcount__word_occurrences__array_t *word_occurrences_arr)
+/** Called when the RPC query is finished with the RPC result if the RPC is
+ * successful. */
+static void IOP_RPC_CB(wordcount__mod, wordcount_iface, count_occurrences)
 {
+    if (status != IC_MSG_OK) {
+        /* RPC error */
+        const char *error = ic_status_to_string(status);
+
+        e_error("RPC error: %s", error);
+        worcount_client_exit(-1);
+        return;
+    }
+
     /* Display the sorted word occurrences */
-    tab_for_each_ptr(word_occurrences, word_occurrences_arr) {
+    tab_for_each_ptr(word_occurrences, &res->word_occurrences) {
         e_info("%pL => %u", &word_occurrences->word,
                word_occurrences->occurrences);
     }
+
+    /* Exit the client */
+    worcount_client_exit(0);
 }
 
 /** Called when the client is connected to the server. */
@@ -126,13 +138,12 @@ static void wordcount_client_on_connect(void)
         return;
     }
 
-    /* TODO: send the file content to the server and wait for the result */
+    /* Send the file content to the server via RPC */
+    ic_query2(&_G.remote_ic, ic_msg_new(0), wordcount__mod, wordcount_iface,
+              count_occurrences, .file_content = file_content);
 
     /* Clean-up */
     lstr_wipe(&file_content);
-
-    /* Exit for now since we don't have more to do */
-    worcount_client_exit(0);
 }
 
 /** Called on server status changes. */

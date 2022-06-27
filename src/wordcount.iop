@@ -38,3 +38,17 @@ struct WordOccurrences {
     /** The occurrences of the word in the file. */
     uint occurrences;
 };
+
+/** IOP Interface for the wordcount server-client communication. */
+interface Iface {
+    /** Count and sort the number of occurrences of each unique words in the
+     *  file content. */
+    countOccurrences
+        in  (string fileContent)
+        out (WordOccurrences[] wordOccurrences);
+};
+
+/** IOP Module for the wordcount server-client communication. */
+module Mod {
+    Iface wordcountIface;
+};
