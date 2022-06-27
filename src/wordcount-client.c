@@ -22,18 +22,22 @@
 
 #include "wordcount-base.h"
 
-static const char *short_args_g = "<file_path>";
+static const char *short_args_g = "-c <server_cfg_path> <file_path>";
 
 static const char *long_usage_g[] = {
     "Client part of wordcount",
     "",
     "Read the content of the file located at <file_path> and send it to the ",
     "server to get the number of occurrences of each unique words via RPC.",
+    "",
+    "The configuration of the server is expected to be in IOP YAML as ",
+    "described by the IOP `wordcount.ServerCfg`",
     NULL,
 };
 
 static struct {
     bool opt_help;
+    const char *opt_cfg_path;
 
     /** The exit status status of the main function */
     int exit_res;
@@ -49,6 +53,8 @@ static struct {
 static popt_t opts_g[] = {
     OPT_GROUP("Options:"),
     OPT_FLAG('h', "help", &_G.opt_help, "show this help"),
+    OPT_STR('c', "cfg", &_G.opt_cfg_path,
+            "path to the server configuration in YAML"),
     OPT_END()
 };
 
@@ -150,25 +156,37 @@ static void wordcount_client_on_event(ichannel_t *ic, ic_event_t evt)
  */
 static int wordcount_client_initialize(void *nullable arg)
 {
+    t_scope;
+    SB_1k(err);
+    wordcount__server_cfg__t *server_cfg;
+
     e_info("starting client");
+
+    /* Unpack the server configuration */
+    server_cfg = t_wordcount_unpack_server_cfg(_G.opt_cfg_path, &err);
+    if (!server_cfg) {
+        e_error("unable to unpack the server cfg `%s`: %pL",
+                _G.opt_cfg_path, &err);
+        return -1;
+    }
 
     /* Create the remote ichannel to connect to the server */
     ic_init(&_G.remote_ic);
     _G.remote_ic.on_event = &wordcount_client_on_event;
 
     /* Get the socket union from the address */
-    if (addr_info_str(&_G.remote_ic.su, WORDCOUNT_SERVER_ADDR,
-                      WORDCOUNT_SERVER_PORT, AF_UNSPEC) < 0)
+    if (addr_info_str(&_G.remote_ic.su, server_cfg->address.s,
+                      server_cfg->port, AF_UNSPEC) < 0)
     {
-        e_error("unable to resolve address %s:%d", WORDCOUNT_SERVER_ADDR,
-                WORDCOUNT_SERVER_PORT);
+        e_error("unable to resolve address %pL:%d", &server_cfg->address,
+                server_cfg->port);
         return -1;
     }
 
     /* Connect to the server */
     if (ic_connect(&_G.remote_ic) < 0) {
-        e_error("cannot connect to %s:%d", WORDCOUNT_SERVER_ADDR,
-                WORDCOUNT_SERVER_PORT);
+        e_error("cannot connect to %pL:%d", &server_cfg->address,
+                server_cfg->port);
         return -1;
     }
 
@@ -211,7 +229,7 @@ int main(int argc, char **argv)
 
     /* Parse the arguments */
     argc = parseopt(argc, argv, opts_g, 0);
-    if (argc != 1 || _G.opt_help) {
+    if (argc != 1 || _G.opt_help || !_G.opt_cfg_path) {
         makeusage(_G.opt_help ? 0 : -1, arg0, short_args_g,
                   long_usage_g, opts_g);
     }

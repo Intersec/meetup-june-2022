@@ -18,6 +18,7 @@
 
 #include <lib-common/el.h>
 #include <lib-common/iop-rpc.h>
+#include <lib-common/iop-yaml.h>
 
 #include "wordcount-base.h"
 
@@ -26,6 +27,17 @@ static struct {
     el_t blocker;
 } wordcount_base_g;
 #define _G wordcount_base_g
+
+wordcount__server_cfg__t * nullable
+t_wordcount_unpack_server_cfg(const char *server_cfg_path, sb_t *err)
+{
+    wordcount__server_cfg__t *res = NULL;
+
+    RETHROW_NP(t_iop_yunpack_ptr_file(server_cfg_path,
+                                      &wordcount__server_cfg__s,
+                                      (void **)&res, 0, NULL, err));
+    return res;
+}
 
 /** Callback called when a termination signal is received.
  *

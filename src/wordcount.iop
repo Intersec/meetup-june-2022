@@ -16,39 +16,16 @@
 /*                                                                         */
 /***************************************************************************/
 
-#ifndef IS_WORDCOUNT_BASE_H
-#define IS_WORDCOUNT_BASE_H
+package wordcount;
 
-#include <lib-common/core.h>
-#include <lib-common/container-qvector.h>
-
-#include "wordcount.iop.h"
-
-/* Structure to contain the occurrences for a unique word */
-typedef struct wordcount_word_occurrences_t {
-    lstr_t word;
-    unsigned occurrences;
-} wordcount_word_occurrences_t;
-
-/* Create the vector type to store the word occurrences. */
-qvector_t(word_occurrences_vec, wordcount_word_occurrences_t);
-
-/** Unpack the server configuration from IOP YAML file.
+/** Server configuration.
  *
- * \param[in]  server_cfg_path The path to the server configuration in IOP
- *                             YAML.
- * \param[out] err             The error description in case of error.
- * \return The unpacked IOP configuration allocated on the t_scope, or NULL in
- *         case of error.
+ * Also used by the client to connect to the server.
  */
-wordcount__server_cfg__t * nullable
-t_wordcount_unpack_server_cfg(const char *server_cfg_path, sb_t *err);
+struct ServerCfg {
+    /** The binding address of the server. */
+    string address;
 
-/** Module to handle common behaviour between server and client.
- *
- * Handle an event loop blocker and handle termination signals.
- * Depends on ic module.
- */
-MODULE_DECLARE(wordcount_base);
-
-#endif /* IS_WORDCOUNT_BASE_H */
+    /** The binding port of the server. */
+    uint port;
+};

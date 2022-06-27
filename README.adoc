@@ -36,10 +36,10 @@ meetup-june-2022/src$ waf
 
 You can now run the `wordcount` server program:
 ----------------------------------
-meetup-june-2022/src$ ./wordcount-server
+meetup-june-2022/src$ ./wordcount-server -c ../etc/wordcount.yml
 ----------------------------------
 
 And run the `wordcount` client program:
 ----------------------------------
-meetup-june-2022/src$ ./wordcount-client <file_path>
+meetup-june-2022/src$ ./wordcount-client -c ../etc/wordcount.yml <file_path>
 ----------------------------------

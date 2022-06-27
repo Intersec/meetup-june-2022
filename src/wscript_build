@@ -17,9 +17,14 @@
 ###########################################################################
 
 
+# Static library to compile and hold the IOP symbols
+ctx.stlib(target='wordcount-iop', features='c cstlib',
+          source='wordcount.iop')
+
+
 # Base static library for wordcount-server and wordcount-client
 ctx.stlib(target='wordcount-base', features='c cstlib',
-          source='wordcount-base.c', use=['libcommon'])
+          source='wordcount-base.c', use=['libcommon', 'wordcount-iop'])
 
 
 # wordcount-server program
