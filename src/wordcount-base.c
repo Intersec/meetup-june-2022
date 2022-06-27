@@ -17,6 +17,7 @@
 /***************************************************************************/
 
 #include <lib-common/el.h>
+#include <lib-common/iop-rpc.h>
 
 #include "wordcount-base.h"
 
@@ -68,4 +69,5 @@ static int wordcount_base_shutdown(void)
 
 /** The definition of the module */
 MODULE_BEGIN(wordcount_base)
+    MODULE_DEPENDS_ON(ic);
 MODULE_END()

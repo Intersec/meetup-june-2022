@@ -35,6 +35,12 @@ static const char *long_usage_g[] = {
 
 static struct {
     bool opt_help;
+
+    /* IChannel server */
+    el_t ic_server;
+
+    /* RPC implementations table */
+    qm_t(ic_cbs) ic_impl;
 } wordcount_server_g;
 #define _G wordcount_server_g
 
@@ -180,6 +186,32 @@ static void wordcount_server_on_rpc(lstr_t file_content)
     /* TODO: reply to the client the sorted word occurrences */
 }
 
+/** Called on client status changes. */
+static void wordcount_server_on_event(ichannel_t *ic, ic_event_t evt)
+{
+    if (evt == IC_EVT_CONNECTED) {
+        e_notice("client %p connected", ic);
+    } else
+    if (evt == IC_EVT_DISCONNECTED) {
+        e_warning("client %p disconnected", ic);
+    }
+}
+
+/** Called on incoming client connection. */
+static int wordcount_server_on_accept(el_t ev, int fd)
+{
+    ichannel_t *ic;
+
+    e_info("incoming connection");
+    ic              = ic_new();
+    ic->on_event    = &wordcount_server_on_event;
+    ic->impl        = &_G.ic_impl;
+    ic->do_el_unref = true;
+
+    ic_spawn(ic, fd, NULL);
+    return 0;
+}
+
 /** Initialization callback called when the module is required.
  *
  * \param[in] arg  An optional argument provided to the module.
@@ -189,11 +221,42 @@ static void wordcount_server_on_rpc(lstr_t file_content)
  */
 static int wordcount_server_initialize(void *nullable arg)
 {
+    sockunion_t su;
+
     e_info("starting server");
 
-    /* TODO: start the IC server */
+    /* Initialize the RPC implementations table */
+    qm_init(ic_cbs, &_G.ic_impl);
+
+    /* Get the socket union from the address */
+    if (addr_info_str(&su, WORDCOUNT_SERVER_ADDR, WORDCOUNT_SERVER_PORT,
+                      AF_UNSPEC) < 0)
+    {
+        e_error("unable to resolve address %s:%d", WORDCOUNT_SERVER_ADDR,
+                WORDCOUNT_SERVER_PORT);
+        return -1;
+    }
+
+    /* Start the IChannel server */
+    _G.ic_server = ic_listento(&su, SOCK_STREAM, IPPROTO_TCP,
+                               &wordcount_server_on_accept);
+    if (!_G.ic_server) {
+        e_error("cannot bind on %s:%d", WORDCOUNT_SERVER_ADDR,
+                WORDCOUNT_SERVER_PORT);
+        return -1;
+    }
 
     return 0;
+}
+
+/** Called on termination signals.
+ *
+ * \param[in] signo The signal number
+ */
+static void wordcount_server_on_term(int signo)
+{
+    /* Release the server on termination signal. */
+    el_unregister(&_G.ic_server);
 }
 
 /** Shutdown callback called when the module is released.
@@ -203,6 +266,9 @@ static int wordcount_server_initialize(void *nullable arg)
 static int wordcount_server_shutdown(void)
 {
     e_info("stopping server");
+
+    /* Clean-up the RPC implementations table */
+    qm_wipe(ic_cbs, &_G.ic_impl);
     return 0;
 }
 
@@ -211,6 +277,9 @@ static MODULE_BEGIN(wordcount_server)
     /* wordcount_base module is initialized before this module, and released
      * after this module */
     MODULE_DEPENDS_ON(wordcount_base);
+
+    /* Implement module method to react on termination signals */
+    MODULE_IMPLEMENTS_INT(on_term, wordcount_server_on_term);
 MODULE_END()
 
 int main(int argc, char **argv)

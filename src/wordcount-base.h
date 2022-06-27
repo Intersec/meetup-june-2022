@@ -22,6 +22,8 @@
 #include <lib-common/core.h>
 #include <lib-common/container-qvector.h>
 
+#define WORDCOUNT_SERVER_ADDR "127.0.0.1"
+#define WORDCOUNT_SERVER_PORT 5001
 
 /* Structure to contain the occurrences for a unique word */
 typedef struct wordcount_word_occurrences_t {
@@ -35,6 +37,7 @@ qvector_t(word_occurrences_vec, wordcount_word_occurrences_t);
 /** Module to handle common behaviour between server and client.
  *
  * Handle an event loop blocker and handle termination signals.
+ * Depends on ic module.
  */
 MODULE_DECLARE(wordcount_base);
 
