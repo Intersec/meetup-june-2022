@@ -106,10 +106,10 @@ static void worcount_client_exit(int res)
 
 __unused__
 static void wordcount_client_on_rpc_cb(
-    const qv_t(word_occurrences_vec) *word_occurrences_vec)
+    const wordcount__word_occurrences__array_t *word_occurrences_arr)
 {
     /* Display the sorted word occurrences */
-    tab_for_each_ptr(word_occurrences, word_occurrences_vec) {
+    tab_for_each_ptr(word_occurrences, word_occurrences_arr) {
         e_info("%pL => %u", &word_occurrences->word,
                word_occurrences->occurrences);
     }

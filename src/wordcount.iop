@@ -29,3 +29,12 @@ struct ServerCfg {
     /** The binding port of the server. */
     uint port;
 };
+
+/** Structure to contain the occurrences for a unique word in a file. */
+struct WordOccurrences {
+    /** The unique word. */
+    string word;
+
+    /** The occurrences of the word in the file. */
+    uint occurrences;
+};

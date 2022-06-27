@@ -24,15 +24,6 @@
 
 #include "wordcount.iop.h"
 
-/* Structure to contain the occurrences for a unique word */
-typedef struct wordcount_word_occurrences_t {
-    lstr_t word;
-    unsigned occurrences;
-} wordcount_word_occurrences_t;
-
-/* Create the vector type to store the word occurrences. */
-qvector_t(word_occurrences_vec, wordcount_word_occurrences_t);
-
 /** Unpack the server configuration from IOP YAML file.
  *
  * \param[in]  server_cfg_path The path to the server configuration in IOP
