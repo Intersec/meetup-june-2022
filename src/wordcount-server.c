@@ -144,14 +144,11 @@ static void t_wordcount_sort_word_occurrences(
     }
 
     /* Sort the vector by occurrences.
-     * We use qv_sort() that works with a block (clang's closure) */
-    qv_sort(word_occurrences_vec)(
-        word_occurrences_vec,
-        ^int (const wordcount__word_occurrences__t *v1,
-              const wordcount__word_occurrences__t *v2)
-    {
-        return CMP(v2->occurrences, v1->occurrences);
-    });
+     * Use iop_sort() which does some introspection to get the sorting fields.
+     */
+    iop_sort(wordcount__word_occurrences, word_occurrences_vec->tab,
+             word_occurrences_vec->len, LSTR("occurrences"), IOP_SORT_REVERSE,
+             NULL);
 }
 
 /** Split the words from the content of a file and sort the words by

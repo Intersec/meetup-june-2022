@@ -29,7 +29,7 @@ ctx.stlib(target='wordcount-base', features='c cstlib',
 
 # wordcount-server program
 ctx.program(target='wordcount-server', features='c cprogram',
-            source='wordcount-server.blk', use=['wordcount-base'])
+            source='wordcount-server.c', use=['wordcount-base'])
 
 
 # wordcount-client program
