@@ -18,7 +18,7 @@
 
 #include <lib-common/core.h>
 #include <lib-common/parseopt.h>
-#include <lib-common/el.h>
+#include <lib-common/iop-rpc.h>
 
 #include "wordcount-base.h"
 
@@ -34,7 +34,15 @@ static const char *long_usage_g[] = {
 
 static struct {
     bool opt_help;
+
+    /** The exit status status of the main function */
+    int exit_res;
+
+    /** The path of the file where to get the content from */
     const char *file_path;
+
+    /** Remote ichannel */
+    ichannel_t  remote_ic;
 } wordcount_client_g;
 #define _G wordcount_client_g
 
@@ -73,6 +81,23 @@ static int wordcount_get_file_content(const char *file_path,
     return 0;
 }
 
+/** Exit the client with the given result status code.
+ *
+ * \param[in] res The result status code to be used as exit status for the
+ *                main() fucntion.
+ */
+static void worcount_client_exit(int res)
+{
+    if (el_is_terminating()) {
+        return;
+    }
+
+    _G.exit_res = res;
+
+    /* Send termination signal to ourself */
+    kill(0, SIGQUIT);
+}
+
 __unused__
 static void wordcount_client_on_rpc_cb(
     const qv_t(word_occurrences_vec) *word_occurrences_vec)
@@ -84,14 +109,14 @@ static void wordcount_client_on_rpc_cb(
     }
 }
 
-__unused__
+/** Called when the client is connected to the server. */
 static void wordcount_client_on_connect(void)
 {
     lstr_t file_content;
 
     /* Get the file content */
     if (wordcount_get_file_content(_G.file_path, &file_content) < 0) {
-        /* TODO: exit */
+        worcount_client_exit(-1);
         return;
     }
 
@@ -99,6 +124,21 @@ static void wordcount_client_on_connect(void)
 
     /* Clean-up */
     lstr_wipe(&file_content);
+
+    /* Exit for now since we don't have more to do */
+    worcount_client_exit(0);
+}
+
+/** Called on server status changes. */
+static void wordcount_client_on_event(ichannel_t *ic, ic_event_t evt)
+{
+    if (evt == IC_EVT_CONNECTED) {
+        e_notice("connected to server");
+        wordcount_client_on_connect();
+    } else if (evt == IC_EVT_DISCONNECTED && !el_is_terminating()) {
+        e_warning("disconnected from server");
+        worcount_client_exit(-1);
+    }
 }
 
 /** Initialization callback called when the module is required.
@@ -112,9 +152,36 @@ static int wordcount_client_initialize(void *nullable arg)
 {
     e_info("starting client");
 
-    /* TODO: connect the IC server */
+    /* Create the remote ichannel to connect to the server */
+    ic_init(&_G.remote_ic);
+    _G.remote_ic.on_event = &wordcount_client_on_event;
+
+    /* Get the socket union from the address */
+    if (addr_info_str(&_G.remote_ic.su, WORDCOUNT_SERVER_ADDR,
+                      WORDCOUNT_SERVER_PORT, AF_UNSPEC) < 0)
+    {
+        e_error("unable to resolve address %s:%d", WORDCOUNT_SERVER_ADDR,
+                WORDCOUNT_SERVER_PORT);
+        return -1;
+    }
+
+    /* Connect to the server */
+    if (ic_connect(&_G.remote_ic) < 0) {
+        e_error("cannot connect to %s:%d", WORDCOUNT_SERVER_ADDR,
+                WORDCOUNT_SERVER_PORT);
+        return -1;
+    }
 
     return 0;
+}
+
+/** Called on termination signals.
+ *
+ * \param[in] signo The signal number
+ */
+static void wordcount_client_on_term(int signo)
+{
+    ic_bye(&_G.remote_ic);
 }
 
 /** Shutdown callback called when the module is released.
@@ -124,6 +191,7 @@ static int wordcount_client_initialize(void *nullable arg)
 static int wordcount_client_shutdown(void)
 {
     e_info("stopping client");
+    ic_wipe(&_G.remote_ic);
     return 0;
 }
 
@@ -132,6 +200,9 @@ static MODULE_BEGIN(wordcount_client)
     /* wordcount_base module is initialized before this module, and released
      * after this module */
     MODULE_DEPENDS_ON(wordcount_base);
+
+    /* Implement module method to react on termination signals */
+    MODULE_IMPLEMENTS_INT(on_term, wordcount_client_on_term);
 MODULE_END()
 
 int main(int argc, char **argv)
@@ -157,5 +228,5 @@ int main(int argc, char **argv)
     /* Shutdown the client */
     MODULE_RELEASE(wordcount_client);
 
-    return 0;
+    return _G.exit_res;
 }
