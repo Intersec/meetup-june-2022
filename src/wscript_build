@@ -22,6 +22,11 @@ ctx.stlib(target='wordcount-iop', features='c cstlib',
           source='wordcount.iop')
 
 
+# Shared library to be used by IOPy in wordcount-client.py
+ctx.shlib(target='wordcount-plugin', features='c cshlib',
+          source='wordcount-plugin.c', use=['wordcount-iop'])
+
+
 # Base static library for wordcount-server and wordcount-client
 ctx.stlib(target='wordcount-base', features='c cstlib',
           source='wordcount-base.c', use=['libcommon', 'wordcount-iop'])
