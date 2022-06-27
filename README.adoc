@@ -43,3 +43,8 @@ And run the `wordcount` client program:
 ----------------------------------
 meetup-june-2022/src$ ./wordcount-client -c ../etc/wordcount.yml <file_path>
 ----------------------------------
+
+Or run the Python `wordcount` client program:
+----------------------------------
+meetup-june-2022/src$ ./wordcount-client.py -c ../etc/wordcount.yml <file_path>
+----------------------------------

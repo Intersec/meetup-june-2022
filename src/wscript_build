@@ -15,6 +15,11 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
+# pylint: disable=undefined-variable
+
+
+# Empty target to compile iopy to be used by wordcount-client.py
+ctx(name='wordcount-deps', depends_on=['iopy'])
 
 
 # Static library to compile and hold the IOP symbols
